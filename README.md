@@ -2,7 +2,7 @@
 
 A small go utility for visualizing globs (and maybe regex file searches later) directly in the terminal.
 
-
+![globber screenshot](https://raw.githubusercontent.com/jcquinlan/globber/master/screen_shot.png)
 
 ## API
 
