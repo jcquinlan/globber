@@ -11,17 +11,24 @@ import (
 	"github.com/fatih/color"
 )
 
+// Determines how exaggerated the indentation in the fs visualization should be
 var depthMultiplier uint8 = 4
 
 var glob *string
 var root *string
 var includeHiddenFiles *bool
 var maxDepth *uint64
-var c *color.Color
+var maxFilesToScan *uint64
+var success, warning *color.Color
 var globMatches []string
 
+var fileCountLimitReached bool = false
+var scannedItemsCount uint64 = 0
+var matchedItemsCount uint64 = 0
+
 func init() {
-	c = color.New(color.FgHiGreen)
+	success = color.New(color.FgHiGreen)
+	warning = color.New(color.FgHiYellow)
 }
 
 func main() {
@@ -29,6 +36,7 @@ func main() {
 	root = flag.String("root", ".", "The starting directory that will act as the root")
 	includeHiddenFiles = flag.Bool("hidden-files", false, "Whether or not to include hidden directories and files")
 	maxDepth = flag.Uint64("max-depth", 20, "How many nested directories should be traversed before stopping")
+	maxFilesToScan = flag.Uint64("max-files-to-scan", 200, "How many files to scan before stopping (useful to avoid scanning every file from root or something)")
 	flag.Parse()
 
 	absPath, err := filepath.Abs(*root)
@@ -45,6 +53,10 @@ func main() {
 	}
 
 	digestDir(absPath, 0)
+	if fileCountLimitReached {
+		warning.Printf(fileCountOverflowMessage, scannedItemsCount)
+	}
+	success.Printf("%d files matched out of %d files scanned.\n", matchedItemsCount, scannedItemsCount)
 }
 
 func goToRoot(absPath string) {
@@ -68,6 +80,11 @@ func processDirEntries(path string, depth uint8) {
 	}
 
 	for _, item := range fileInfo {
+		if scannedItemsCount >= *maxFilesToScan {
+			fileCountLimitReached = true
+			continue
+		}
+
 		itemName := item.Name()
 
 		// Check to see if we should ignore hidden items
@@ -83,10 +100,12 @@ func processDirEntries(path string, depth uint8) {
 			fmt.Println(styledName)
 			digestDir(absItemPath, depth+1)
 		} else {
+			scannedItemsCount++
 			matched := contains(globMatches, absItemPath)
 
 			if matched {
-				c.Println(styledName)
+				success.Println(styledName)
+				matchedItemsCount++
 			} else {
 				fmt.Println(styledName)
 			}
